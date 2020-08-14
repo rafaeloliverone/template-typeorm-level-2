@@ -19,16 +19,11 @@ class CreateTransactionService {
     type,
     category,
   }: Request): Promise<Transaction> {
+    let categoryId: string;
+
     const transactionsRepository = await getCustomRepository(
       TransactionsRepository,
     );
-
-    const data = {
-      title,
-      value,
-      type,
-      category_id: 0,
-    };
 
     const repositoryCategory = await getRepository(Category);
 
@@ -37,16 +32,19 @@ class CreateTransactionService {
     });
 
     if (checkCategoryExists) {
-      // const idCategory = checkCategoryExists.id;
-      data.category_id = 1;
+      categoryId = checkCategoryExists.id;
     } else {
-      // const newCategory = await repositoryCategory.create({ title: category });
-      // await repositoryCategory.save(newCategory);
-
-      data.category_id = 1;
+      const newCategory = await repositoryCategory.create({ title: category });
+      await repositoryCategory.save(newCategory);
+      categoryId = newCategory.id;
     }
 
-    const transaction = await transactionsRepository.create(data);
+    const transaction = await transactionsRepository.create({
+      title,
+      value,
+      type,
+      category_id: categoryId,
+    });
 
     await transactionsRepository.save(transaction);
 
