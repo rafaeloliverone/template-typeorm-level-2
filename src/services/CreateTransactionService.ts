@@ -1,6 +1,6 @@
-// import AppError from '../errors/AppError';
 import { getCustomRepository, getRepository } from 'typeorm';
 
+import AppError from '../errors/AppError';
 import Transaction from '../models/Transaction';
 import Category from '../models/Category';
 import TransactionsRepository from '../repositories/TransactionsRepository';
@@ -19,31 +19,36 @@ class CreateTransactionService {
     type,
     category,
   }: Request): Promise<Transaction> {
-    let categoryId: string;
-
     const transactionsRepository = await getCustomRepository(
       TransactionsRepository,
     );
 
-    const repositoryCategory = await getRepository(Category);
+    if (type === 'outcome') {
+      const { total } = await transactionsRepository.getBalance();
 
-    const checkCategoryExists = await repositoryCategory.findOne({
+      if (total < value) {
+        throw new AppError('Input value exceeded the total value', 400);
+      }
+    }
+
+    const categoryRepository = await getRepository(Category);
+
+    let transactionCategory = await categoryRepository.findOne({
       where: { title: category },
     });
 
-    if (checkCategoryExists) {
-      categoryId = checkCategoryExists.id;
-    } else {
-      const newCategory = await repositoryCategory.create({ title: category });
-      await repositoryCategory.save(newCategory);
-      categoryId = newCategory.id;
+    if (!transactionCategory) {
+      transactionCategory = await categoryRepository.create({
+        title: category,
+      });
+      await categoryRepository.save(transactionCategory);
     }
 
     const transaction = await transactionsRepository.create({
       title,
       value,
       type,
-      category_id: categoryId,
+      category: transactionCategory,
     });
 
     await transactionsRepository.save(transaction);
